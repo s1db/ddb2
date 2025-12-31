@@ -1,0 +1,9 @@
+source -s abc.rc
+read_verilog verify_struct.v
+strash
+miter -c
+write_counterexample -
+exit
+ntk_to_miter
+p_cex
+print_status

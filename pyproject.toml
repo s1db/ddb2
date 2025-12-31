@@ -1,0 +1,11 @@
+[project]
+name = "ddb"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pycmsgen>=6.1.1",
+    "python-sat>=1.8.dev26",
+    "scikit-learn>=1.8.0",
+]
