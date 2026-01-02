@@ -28,8 +28,6 @@ class OracleSampler:
             self.sampler.add_clauses(cnf.clauses)
             logger.debug(f"Loaded {len(cnf.clauses)} clauses into pycmsgen.")
             
-        # Note: Weights are not set explicitly; relying on default sampler behavior.
-
         # --- 2. Initialize Oracle (Glucose3) ---
         self.oracle = Glucose3(bootstrap_with=cnf.clauses)
 
@@ -37,7 +35,7 @@ class OracleSampler:
         """
         Generates labeled samples for each output variable.
         Returns: 
-            samples_X: List of input assignments
+            samples_data: List of dicts {var_id: value (0/1)} containing full assignment (X and Y).
             labels_Y: Dict {var_idx: [label_1, label_2, ...]}
             
         Labels:
@@ -45,7 +43,7 @@ class OracleSampler:
             1: Must-1     (0 is UNSAT given prefix)
             2: Must-0     (1 is UNSAT given prefix)
         """
-        samples_X = []
+        samples_data = []
         labels_Y = {v: [] for v in self.output_vars}
         
         generated_count = 0
@@ -64,13 +62,14 @@ class OracleSampler:
             # Map literals to values for O(1) lookup
             sample_map = {abs(l): l for l in model}
             
-            # Extract Input vector X for this sample
-            X_vector = []
-            for x in self.input_vars:
-                val = 1 if sample_map.get(x, -x) > 0 else 0
-                X_vector.append(val)
+            # Store full assignment (X and Y) for feature construction later
+            # We map variable ID -> 0/1 integer
+            current_sample = {}
+            for v in self.input_vars + self.output_vars:
+                 val = 1 if sample_map.get(v, -v) > 0 else 0
+                 current_sample[v] = val
             
-            samples_X.append(X_vector)
+            samples_data.append(current_sample)
             
             # 2. Labeling (The "Poly-Check")
             # For each output y_i, check if its value was "forced" by the prefix.
@@ -108,5 +107,5 @@ class OracleSampler:
             if generated_count % 50 == 0:
                 logger.info(f"Generated {generated_count}/{num_samples} samples.")
             
-        logger.info(f"Finished sampling. Total samples: {len(samples_X)}")
-        return samples_X, labels_Y
+        logger.info(f"Finished sampling. Total samples: {len(samples_data)}")
+        return samples_data, labels_Y

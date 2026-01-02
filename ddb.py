@@ -9,7 +9,7 @@ def main():
     # Setup Logging
     logging.basicConfig(
         level=logging.DEBUG, 
-        format='%(name)s - %(levelname)s - %(message)s'
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     logger = logging.getLogger("ddb_main")
 
@@ -18,6 +18,10 @@ def main():
     parser.add_argument("--samples", type=int, default=500, help="Number of training samples")
     parser.add_argument("--iterations", type=int, default=50, help="Max repair iterations")
     
+    # Topology sort toggle
+    parser.add_argument("--topo-sort", action="store_true", default=True, help="Enable topological sort of output variables (Default)")
+    parser.add_argument("--no-topo-sort", action="store_false", dest="topo_sort", help="Disable topological sort (Use QDIMACS order)")
+    
     args = parser.parse_args()
     
     logger.info(f"Processing specification: {args.spec_file}")
@@ -25,17 +29,27 @@ def main():
     logger.info(f"Input dimensions: |X|={len(qparser.universals)}, |Y|={len(qparser.existentials)}")
     
     input_vars = list(qparser.universals)
-    output_vars = list(qparser.existentials)
+    
+    if args.topo_sort:
+        logger.info("Computing topological dependency order...")
+        output_vars = qparser.get_dependency_order()
+    else:
+        logger.info("Using QDIMACS file order for output variables.")
+        output_vars = list(qparser.existentials)
+
+    logger.info(f"Variable Order: {output_vars}")
     
     # Phase 2: Sampling
     logger.info(f"Starting Phase 2: Sampling ({args.samples} samples)")
     sampler = OracleSampler(qparser.get_cnf(), input_vars, output_vars)
-    samples_X, labels_Y = sampler.generate_samples(args.samples)
+    # samples_data contains the full trace (X + Y)
+    samples_data, labels_Y = sampler.generate_samples(args.samples)
     
     # Phase 3: Learning
     logger.info("Starting Phase 3: Learning Initial Basis")
     learner = BasisLearner(input_vars, output_vars)
-    candidates = learner.learn(samples_X, labels_Y)
+    # Pass full samples_data so learner can extract Y_{<i} features
+    candidates = learner.learn(samples_data, labels_Y)
     
     # Initialize G variables
     max_var = qparser.num_vars
